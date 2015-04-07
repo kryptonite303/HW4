@@ -1,0 +1,17 @@
+console
+run testjs/jor.js
+run testjs/for.js
+run testjs/test05_for.js
+run -d testjs/test05_for.js
+run -d test08_object.js
+run -d testjs/test08_object.js
+run -d testjs/test05_for.js
+run -d testjs/test08_object.js
+cat ite
+run -d testjs/test04_ite.js
+run -d testjs/test08_object.js
+test
+run -d testjs/test08_object.js
+clean
+exir
+exit
