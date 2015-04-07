@@ -208,19 +208,13 @@ object HW4 extends js.util.JsApp {
         case tgot => err(tgot, e1)
       }
       case Obj(fs) => {
-        val keys = fs.keys
-        def makeMap(key: String, value: Typ, map: Map[String, Typ]): Map[String, Typ] = {
-          val myMap = map + (key -> value)
-          myMap
-        }
-        fs.foldLeft(0) {
-          case (s, e) => 
+        val list = fs.foldRight(TUndefined){
+          (s, e) => (s, typ(e))
         }
         TObj(list)
       }
       case GetField(e1, f) => e1 match {
-        //case Obj(fs) => typ(fs.get(f).get)
-        f.
+        case Obj(fs) => typ(fs.get(f).get)
       }
         
     }
