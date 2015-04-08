@@ -209,9 +209,9 @@ object HW4 extends js.util.JsApp {
       }
       case Obj(fs) => {
         val list = fs.foldRight(TUndefined){
-          (s, e) => (s, typ(e))
+          (s, e) => ???
         }
-        TObj(list)
+        ???
       }
       case GetField(e1, f) => e1 match {
         case Obj(fs) => typ(fs.get(f).get)
@@ -254,16 +254,12 @@ object HW4 extends js.util.JsApp {
       case UnOp(uop, e1) => UnOp(uop, subst(e1))
       case BinOp(bop, e1, e2) => BinOp(bop, subst(e1), subst(e2))
       case If(e1, e2, e3) => If(subst(e1), subst(e2), subst(e3))
-      case Var(y) => if (x == y) v else e
+      case Var(y) => if (x == y) v else e //if match new else old
       case ConstDecl(y, e1, e2) => ConstDecl(y, subst(e1), if (x == y) e2 else subst(e2))
-      case Function(p, xs, tann, e1) =>
-        ???
-      case Call(e1, es) =>
-        ???
-      case Obj(fs) =>
-        ???
-      case GetField(e1, f) =>
-        ???
+      case Function(p, xs, tann, e1) => ???
+      case Call(e1, es) => Call(subst(e1), es)
+      case Obj(fs) => Obj(fs)
+      case GetField(e1, f) => GetField(subst(e1), f)
     }
   }
   
@@ -296,7 +292,7 @@ object HW4 extends js.util.JsApp {
             }
             p match {
               case None => e1p
-              case Some(x1) => 
+              case Some(x1) => ???
             }
           }
           case _ => throw new StuckError(e)
