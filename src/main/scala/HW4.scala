@@ -167,8 +167,15 @@ object HW4 extends js.util.JsApp {
         case tgot => err(tgot, e1)
       }
       case UnOp(Not, e1) => typ(e1)
-      case BinOp(Plus, e1, e2) => typ(e1)
-      case BinOp(Minus|Times|Div, e1, e2) => typ(e1)
+      case BinOp(Plus, e1, e2) => typ(e1) == typ(e2) match {
+        case true => typ(e1) match {
+          case TNumber => TNumber
+          case TString => TString
+          case _ => err(typ(e1), e1)
+        }
+        case false => err(typ(e1), e1)
+      }
+      case BinOp(Minus|Times|Div, e1, e2) => TNumber
       case BinOp(Eq|Ne, e1, e2) => TBool
       case BinOp(Lt|Le|Gt|Ge, e1, e2) => TBool
       case BinOp(And|Or, e1, e2) => TBool
@@ -186,37 +193,37 @@ object HW4 extends js.util.JsApp {
         }
         // Bind to env2 an environment that extends env1 with bindings for xs.
         val env2 = {
-          xs.foldLeft(env1){
-            case (env1, (x: String, t: Typ)) => env + (x -> t)
+          env1 + xs.foreach{
+            case (s,t) => (s -> t)  
           }
-        }
+        } 
+          //xs.foreach(env1 + _)
         // Match on whether the return type is specified.
         tann match {
-          case None => typ(e1)
+          case None => {
+            println(e1 + "asdf")
+            println(env2 + " asdfee")
+            typ(e1)
+          }
           case Some(tret) => tret
         }
       }
       case Call(e1, es) => typ(e1) match {
         case TFunction(txs, tret) if (txs.length == es.length) => {
           (txs, es).zipped.foreach {
-           (x,e) => x match {
-             case (s, t) => if (t != typ(e)) err(t, e1)
-           }
+            case ((x,t), e) => if (t != typ(e)) err(t, e)
           }
           tret
         }
         case tgot => err(tgot, e1)
       }
       case Obj(fs) => {
-        val list = fs.foldRight(TUndefined){
-          (s, e) => ???
-        }
-        ???
+        TObj(fs.mapValues { typ(_) })
       }
       case GetField(e1, f) => e1 match {
         case Obj(fs) => typ(fs.get(f).get)
+        case _ => err(typ(e1), e1)
       }
-        
     }
   }
   
@@ -277,22 +284,27 @@ object HW4 extends js.util.JsApp {
       case BinOp(Seq, v1, e2) if isValue(v1) => e2
       case BinOp(Plus, Str(s1), Str(s2)) => Str(s1 + s2)
       case BinOp(Plus, Num(n1), Num(n2)) => Num(n1 + n2)
+      case BinOp(Times, Num(n1), Num(n2)) => Num(n1 * n2)
+      case BinOp(Minus, Num(n1), Num(n2)) => Num(n1 - n2)
+      case BinOp(Div, Num(n1), Num(n2)) => Num(n1 / n2)
       case BinOp(bop @ (Lt|Le|Gt|Ge), v1, v2) if isValue(v1) && isValue(v2) => 
         Bool(inequalityVal(bop, v1, v2))
       case BinOp(Eq, v1, v2) if isValue(v1) && isValue(v2) => Bool(v1 == v2)
       case BinOp(Ne, v1, v2) if isValue(v1) && isValue(v2) => Bool(v1 != v2)
       case BinOp(And, Bool(b1), e2) => if (b1) e2 else Bool(false)
       case BinOp(Or, Bool(b1), e2) => if (b1) Bool(true) else e2
+      case If(Bool(true), e2, e3) => e2
+      case If(Bool(false), e2, e3) => e3
       case ConstDecl(x, v1, e2) if isValue(v1) => substitute(e2, x, v1)
       case Call(v1, es) if isValue(v1) && (es forall isValue) =>
         v1 match {
           case Function(p, txs, _, e1) => {
             val e1p = (txs, es).zipped.foldRight(e1){
-              ???
+              case ((x,t), eNew) => substitute(e, x._1, eNew)
             }
             p match {
               case None => e1p
-              case Some(x1) => ???
+              case Some(x1) => substitute(e, x1, v1)
             }
           }
           case _ => throw new StuckError(e)
