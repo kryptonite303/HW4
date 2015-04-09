@@ -1,5 +1,5 @@
 const x = 1;
-const r = (function(x) { return 2; })(3) + x;
+const r = (function(x) { return 2; } ) (3) + x;
 console.log(r);
 
 const x = 1;

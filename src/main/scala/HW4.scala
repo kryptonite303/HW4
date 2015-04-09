@@ -193,22 +193,23 @@ object HW4 extends js.util.JsApp {
         }
         // Bind to env2 an environment that extends env1 with bindings for xs.
         val env2 = {
-          env1 + xs.foreach{
-            case (s,t) => (s -> t)  
+          xs.foldLeft(env1){
+            case (env2, (s,t)) => env2 + (s -> t)
           }
-        } 
-          //xs.foreach(env1 + _)
+        }
         // Match on whether the return type is specified.
         tann match {
-          case None => {
-            println(e1 + "asdf")
-            println(env2 + " asdfee")
-            typ(e1)
+          case None => TFunction(xs, typeInfer(env2, e1))
+          case Some(tret) => {
+            val bodyType = typeInfer(env2, e1)
+            if (bodyType == tret) TFunction(xs,tret)
+            else err(bodyType,e1)
           }
-          case Some(tret) => tret
         }
       }
-      case Call(e1, es) => typ(e1) match {
+      case Call(e1, es) => 
+        //println(e.prettyJS() + " type of e1:" + print.prettyTyp(typ(e1)))
+        typ(e1) match {
         case TFunction(txs, tret) if (txs.length == es.length) => {
           (txs, es).zipped.foreach {
             case ((x,t), e) => if (t != typ(e)) err(t, e)
@@ -220,8 +221,9 @@ object HW4 extends js.util.JsApp {
       case Obj(fs) => {
         TObj(fs.mapValues { typ(_) })
       }
-      case GetField(e1, f) => e1 match {
-        case Obj(fs) => typ(fs.get(f).get)
+      case GetField(e1, f) => 
+        typ(e1) match {
+        case TObj(e) => e.get(f).get
         case _ => err(typ(e1), e1)
       }
     }
@@ -251,6 +253,7 @@ object HW4 extends js.util.JsApp {
   }
   
   def substitute(e: Expr, x: String, v: Expr): Expr = {
+    println("start: " + v + " asddddd")
     require(isValue(v) && closed(v))
     
     def subst(e: Expr): Expr = substitute(e, x, v)
@@ -263,39 +266,76 @@ object HW4 extends js.util.JsApp {
       case If(e1, e2, e3) => If(subst(e1), subst(e2), subst(e3))
       case Var(y) => if (x == y) v else e //if match new else old
       case ConstDecl(y, e1, e2) => ConstDecl(y, subst(e1), if (x == y) e2 else subst(e2))
-      case Function(p, xs, tann, e1) => ???
-      case Call(e1, es) => Call(subst(e1), es)
-      case Obj(fs) => Obj(fs)
-      case GetField(e1, f) => GetField(subst(e1), f)
+      case Function(p, xs, tann, e1) => {
+        Function(p, xs, tann, subst(e1))
+      }
+      case Call(e1, es) => {
+        val listNew = es.foldLeft(es){
+          (es, e1) => es.::(subst(e1)) 
+        }
+        Call(subst(e1), listNew)
+      }
+        //Call(subst(e1), es) // look for all x's in e1 which is a function and es which are parameters, 
+        // substitute in to replace x with the value and then done. no need to evaluate
+      // if any of the x's match any of the parameters, then that x is not free, so just leave this case return the whole thing unchanged
+      // xs.exists(_.1 == x)
+      // or
+      // (xs._1 ++ p).exists(_ == x)
+      case Obj(fs) => {
+        val newMap: Map[String, Expr] = Map() 
+        val newList = {
+          fs.foldLeft(newMap){
+            case (m, (s, e)) => m.+((s,e))
+          }
+        }
+        Obj(newList)
+      }
+      // look into object fields and subtitute the values {f1 : x, f2 : 3}  [4/x] = {f1: 4, f2: 3}
+      case GetField(e1, f) => e1 match {
+        case (Obj(ts)) => ts.get(f).get
+      }
     }
   }
   
   def step(e: Expr): Expr = {
     require(!isValue(e))
     assume(closed(e))
-    
     def stepIfNotValue(e: Expr): Option[Expr] = if (isValue(e)) None else Some(step(e))
     
     val e1 = e match {
       /* Base Cases: Do Rules */
       case Print(v1) if isValue(v1) => println(v1.prettyVal); Undefined
+      //do uminus
       case UnOp(UMinus, Num(n1)) => Num(- n1)
+      //do not
       case UnOp(Not, Bool(b1)) => Bool(! b1)
+      //do seq
       case BinOp(Seq, v1, e2) if isValue(v1) => e2
+      //do plus str
       case BinOp(Plus, Str(s1), Str(s2)) => Str(s1 + s2)
+      //do arith
       case BinOp(Plus, Num(n1), Num(n2)) => Num(n1 + n2)
       case BinOp(Times, Num(n1), Num(n2)) => Num(n1 * n2)
       case BinOp(Minus, Num(n1), Num(n2)) => Num(n1 - n2)
       case BinOp(Div, Num(n1), Num(n2)) => Num(n1 / n2)
+      //do ineq num and str
       case BinOp(bop @ (Lt|Le|Gt|Ge), v1, v2) if isValue(v1) && isValue(v2) => 
         Bool(inequalityVal(bop, v1, v2))
+      //do eq
       case BinOp(Eq, v1, v2) if isValue(v1) && isValue(v2) => Bool(v1 == v2)
+      //do ne
       case BinOp(Ne, v1, v2) if isValue(v1) && isValue(v2) => Bool(v1 != v2)
+      //do and
       case BinOp(And, Bool(b1), e2) => if (b1) e2 else Bool(false)
+      //do or true
       case BinOp(Or, Bool(b1), e2) => if (b1) Bool(true) else e2
+      //do if then
       case If(Bool(true), e2, e3) => e2
+      //do if else
       case If(Bool(false), e2, e3) => e3
+      //do const
       case ConstDecl(x, v1, e2) if isValue(v1) => substitute(e2, x, v1)
+      //do call and rec
       case Call(v1, es) if isValue(v1) && (es forall isValue) =>
         v1 match {
           case Function(p, txs, _, e1) => {
@@ -312,14 +352,34 @@ object HW4 extends js.util.JsApp {
       /*** Fill-in more cases here. ***/
         
       /* Inductive Cases: Search Rules */
+      //search print
       case Print(e1) => Print(step(e1))
+      //search uop
       case UnOp(uop, e1) => UnOp(uop, step(e1))
+      //search bop2
       case BinOp(bop, v1, e2) if isValue(v1) => BinOp(bop, v1, step(e2))
+      //Search bop1
       case BinOp(bop, e1, e2) => BinOp(bop, step(e1), e2)
+      //search if
       case If(e1, e2, e3) => If(step(e1), e2, e3)
+      //search const
       case ConstDecl(x, e1, e2) => ConstDecl(x, step(e1), e2)
       /*** Fill-in more cases here. ***/
-      
+      // Search obj
+      case Obj(fs) => {
+        Obj(fs.mapValues { x => step(x) })
+      }
+      //search getfield
+      case GetField(e1, f) if(!isValue(e1)) => GetField(step(e1), f)
+      //search call2
+      case Call(e1, es) if isValue(e1) =>
+        val l:List[Expr] = List()
+        val newES = es.foldLeft(l){
+          case (l1, e1) => l1.+:(step(e1))
+        }
+        Call(e1, newES)
+      //search call1
+      case Call(e1, es) => Call(step(e1), es)
       /* Everything else is a stuck error. Should not happen if e is well-typed. */
       case _ => throw StuckError(e)
     }
