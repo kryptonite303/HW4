@@ -31,4 +31,20 @@ class HW4Spec extends FlatSpec {
   } 
 
   // Probably you want to write some tests for typeInfer, substitute, and step.
+  "typeInfer" should "check the types are correct for inputs" in {
+    val map: Map[String, Typ] = Map()
+    val value = (typeInfer(map, Num(1)) == typeInfer(map, Num(2)))
+    assert(value == true)
+  }
+  "substitute" should "properly substitute values into expressions" in {
+    val x = Var("variable")
+    val y = Num(1)
+    substitute(x, "variable", y)
+    assert(Num(1) == x)
+  }
+  "step" should "properly step through expressions" in {
+    val x = Num(5)
+    val y = BinOp(Plus, Num(4), Num(1))
+    assert(step(y) == x)
+  }
 }

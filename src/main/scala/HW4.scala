@@ -253,7 +253,6 @@ object HW4 extends js.util.JsApp {
   }
   
   def substitute(e: Expr, x: String, v: Expr): Expr = {
-    println("start: " + v + " asddddd")
     require(isValue(v) && closed(v))
     
     def subst(e: Expr): Expr = substitute(e, x, v)
